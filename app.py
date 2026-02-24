@@ -27,9 +27,22 @@ def get_rag_manager(api_key=None):
 # Sidebar para configurações e upload de base de conhecimento
 with st.sidebar:
     st.header("⚙️ Configurações")
-    api_key = st.text_input("OpenAI API Key", type="password", value=os.getenv("OPENAI_API_KEY", ""))
-    if api_key:
-        os.environ["OPENAI_API_KEY"] = api_key
+    # Tenta limpar a chave de espaços em branco e caracteres invisíveis
+    env_api_key = os.getenv("OPENAI_API_KEY", "")
+    api_key_input = st.text_input("OpenAI API Key", type="password", value=env_api_key)
+    
+    # Processa a chave para garantir que é ASCII puro
+    if api_key_input:
+        try:
+            # Tenta codificar para ASCII para verificar se há caracteres inválidos
+            api_key_input.encode('ascii')
+            api_key = api_key_input.strip()
+            os.environ["OPENAI_API_KEY"] = api_key
+        except UnicodeEncodeError:
+            st.error("❌ A chave da API contém caracteres inválidos (não ASCII). Verifique se você copiou corretamente.")
+            api_key = None
+    else:
+        api_key = None
         
     selected_model = st.selectbox(
         "Modelo de IA",
@@ -57,22 +70,16 @@ tab1, tab2 = st.tabs(["📄 Gerador de Pareceres", "📚 Biblioteca de Documento
 with tab1:
     # Área principal para análise de caso
     st.header("📄 Análise de Caso Concreto")
-    st.markdown("Escolha o documento que será o **objeto principal da análise** (você pode fazer upload de um novo, escolher da biblioteca, ou ambos):")
+    st.markdown("Faça upload do documento que será o **objeto principal da análise**:")
     
-    col_a, col_b = st.columns(2)
-    with col_a:
-        case_file = st.file_uploader(
-            "1. Fazer upload de novo documento", 
-            type=allowed_types, 
-            key="case"
-        )
-    with col_b:
-        available_sources = rag_manager.get_all_sources() if rag_manager else []
-        selected_lib_docs = st.multiselect(
-            "2. Selecionar da Biblioteca",
-            options=available_sources,
-            help="Selecione um ou mais documentos já salvos na sua biblioteca para serem analisados."
-        )
+    case_file = st.file_uploader(
+        "Upload de Documento (Edital, Contrato, Processo)", 
+        type=allowed_types, 
+        key="case"
+    )
+    
+    # Variável selected_lib_docs precisa existir mesmo vazia para não quebrar a lógica abaixo
+    selected_lib_docs = []
 
     query_topic = st.text_input("Qual o tema principal da análise? (Ex: Dispensa de licitação por valor, inexigibilidade, reequilíbrio econômico-financeiro)")
     
@@ -81,12 +88,19 @@ with tab1:
         value=True,
         help="Se ativado, a IA vai pesquisar na sua Biblioteca de Documentos para fundamentar o parecer (similar ao NotebookLM)."
     )
+    
+    use_web_search = st.toggle(
+        "🌐 Buscar na Internet - Motor de Busca", 
+        value=True,
+        help="Se ativado, a IA vai pesquisar na web (Google-like) por legislação atualizada, jurisprudência e doutrina."
+    )
 
     if st.button("Gerar Parecer Jurídico", type="primary"):
         if not api_key:
             st.error("Por favor, insira sua OpenAI API Key na barra lateral.")
-        elif not case_file and not selected_lib_docs:
-            st.error("Por favor, faça o upload de um documento ou selecione um da biblioteca para ser analisado.")
+        # Se nenhuma opção de entrada fornecida (nem arquivo, nem biblioteca, nem web), aí sim mostra erro
+        elif not case_file and not selected_lib_docs and not use_web_search:
+            st.error("Por favor, forneça pelo menos uma fonte de informação: Upload de arquivo, Seleção da Biblioteca ou Busca na Web.")
         elif not query_topic:
             st.error("Por favor, informe o tema principal da análise.")
         else:
@@ -107,17 +121,25 @@ with tab1:
                         case_text += f"--- Documento da Biblioteca: {doc_source} ---\n"
                         case_text += rag_manager.get_text_by_source(doc_source) + "\n\n"
                 
+                if not case_text:
+                    case_text = "Nenhum documento específico foi anexado. O parecer será baseado inteiramente na pesquisa web e conhecimento prévio."
+                
                 rag_context = "O usuário optou por não utilizar a Biblioteca de Documentos."
                 rag_results = []
                 
                 if use_library:
                     st.write("🔍 Buscando na base de conhecimento local (Biblioteca)...")
-                    rag_results = rag_manager.search_similar(query_topic, k=5)
-                    rag_context = "\n\n".join([doc.page_content for doc in rag_results]) if rag_results else "Nenhum contexto local encontrado na Biblioteca."
-                
-                st.write("🌐 Buscando jurisprudência recente na Web (TCU, STJ, TJs)...")
-                search_query = f"jurisprudência TCU STJ TJ {query_topic} lei 14.133"
-                web_context = search_jurisprudence(search_query)
+                    if rag_manager:
+                        rag_results = rag_manager.search_similar(query_topic, k=5)
+                        if rag_results:
+                            rag_context = "\n\n".join([doc.page_content for doc in rag_results])
+                        else:
+                            rag_context = "Nenhum contexto local relevante encontrado."
+
+                web_context = "O usuário optou por não realizar buscas na Internet."
+                if use_web_search:
+                    st.write("🌐 Pesquisando Doutrina, Legislação e Jurisprudência na Web (Google)...")
+                    web_context = search_jurisprudence(query_topic)
                 
                 st.write("✍️ Gerando Parecer Jurídico com IA...")
                 status.update(label="Parecer gerado com sucesso!", state="complete", expanded=False)
