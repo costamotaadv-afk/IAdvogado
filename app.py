@@ -27,22 +27,37 @@ def get_rag_manager(api_key=None):
 # Sidebar para configurações e upload de base de conhecimento
 with st.sidebar:
     st.header("⚙️ Configurações")
-    # Tenta limpar a chave de espaços em branco e caracteres invisíveis
-    env_api_key = os.getenv("OPENAI_API_KEY", "")
-    api_key_input = st.text_input("OpenAI API Key", type="password", value=env_api_key)
     
-    # Processa a chave para garantir que é ASCII puro
-    if api_key_input:
-        try:
-            # Tenta codificar para ASCII para verificar se há caracteres inválidos
-            api_key_input.encode('ascii')
-            api_key = api_key_input.strip()
-            os.environ["OPENAI_API_KEY"] = api_key
-        except UnicodeEncodeError:
-            st.error("❌ A chave da API contém caracteres inválidos (não ASCII). Verifique se você copiou corretamente.")
-            api_key = None
+    # 1. Tenta pegar de st.secrets (Streamlit Cloud)
+    try:
+        secret_key = st.secrets["OPENAI_API_KEY"]
+    except (FileNotFoundError, KeyError):
+        secret_key = ""
+
+    # 2. Se não achou, tenta variável de ambiente local
+    if not secret_key:
+        secret_key = os.getenv("OPENAI_API_KEY", "")
+
+    # Se já tivermos uma chave válida configurada (do Cloud), usamos ela direto
+    if secret_key:
+        st.success("✅ Chave de API configurada pelo servidor.")
+        api_key = secret_key
     else:
-        api_key = None
+        # Só pede a chave se não encontrou em lugar nenhum
+        api_key_input = st.text_input("OpenAI API Key", type="password")
+        
+        if api_key_input:
+            try:
+                api_key_input.encode('ascii')
+                api_key = api_key_input.strip()
+            except UnicodeEncodeError:
+                st.error("❌ A chave contém caracteres inválidos.")
+                api_key = None
+        else:
+            api_key = None
+
+    if api_key:
+        os.environ["OPENAI_API_KEY"] = api_key
         
     selected_model = st.selectbox(
         "Modelo de IA",
