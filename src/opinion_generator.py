@@ -59,20 +59,25 @@ def generate_legal_opinion(
     """
     
     user_prompt = """
-    DOCUMENTO(S) SOB ANÁLISE (Fatos do Caso):
-    {pdf_text}
-    
+    FONTE PRIMÁRIA - DOCUMENTOS INTERNOS DO PROCESSO (Anexos):
+    (Edital, TR/ETP, Minutas, Contrato, Aditivos, Medições, Notas Fiscais, Pareceres Anteriores, Relatórios de Fiscalização, Plano de Trabalho, Prestações de Contas)
     -------------------------------------------------
-    CONTEXTO DA BIBLIOTECA (Lei/Doutrina Interna):
+    {pdf_text}
+    -------------------------------------------------
+    
+    FONTES DE APOIO - BIBLIOTECA E INTERNET (Externas):
+    (Legislação Atualizada, Julgados STJ/STF, Acórdãos TCU, Normas do Concedente, Manuais Oficiais, Doutrina Institucional)
+    -------------------------------------------------
+    CONTEXTO DA BIBLIOTECA:
     {rag_context}
     
-    -------------------------------------------------
-    PESQUISA JURISPRUDENCIAL (Web/Atualidades):
+    PESQUISA WEB ATUALIZADA:
     {web_context}
-    
     -------------------------------------------------
-    COMANDO:
-    Analise o documento acima seguindo RIGOROSAMENTE as Golden Rules e o Checklist de Qualidade definidos.
+    
+    COMANDO INTEGRATIVO:
+    Utilize as FONTES DE APOIO apenas para validar, corrigir ou fundamentar os dados encontrados na FONTE PRIMÁRIA.
+    Se a fonte primária (documento interno) estiver em desacordo com a norma externa (lei/acórdão), aponte imediatamente como RISCO ALTO na matriz.
     """
     
     prompt = ChatPromptTemplate.from_messages([

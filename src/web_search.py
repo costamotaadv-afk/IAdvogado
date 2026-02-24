@@ -9,25 +9,25 @@ def search_jurisprudence(topic: str) -> str:
     search_tool = DuckDuckGoSearchRun()
     combined_results = []
     
-    # 1. Camada de Notícias e Contexto (Clima dos Tribunais)
-    news_strategy = {
-        "source": "📰 NOTÍCIAS JURÍDICAS E CONTEXTO (Migalhas, Conjur, Jota)",
-        "query": f"site:migalhas.com.br OR site:conjur.com.br OR site:jota.info {topic} (\"decisão recente\" OR \"últimas notícias\")"
+    # 1. Camada de Legislação e Normas Oficiais (Base Legal)
+    official_normative_strategy = {
+        "source": "📜 LEGISLAÇÃO, MANUAIS E PORTAIS OFICIAIS (Planalto, Transparência)",
+        "query": f"site:planalto.gov.br OR site:gov.br OR site:portaltransparencia.gov.br {topic} (\"lei 14.133\" OR \"instrução normativa\" OR \"manual\")"
     }
 
-    # 2. Camada de Fontes Oficiais (Lei Seca e Andamento)
-    official_strategy = {
-        "source": "⚖️ LEGISLAÇÃO E FONTES OFICIAIS (Planalto, Senado, Jus.br)",
-        "query": f"site:planalto.gov.br OR site:senado.leg.br OR site:jus.br {topic} lei 14.133"
+    # 2. Camada de Jurisprudência e Controle Externo (Precedentes)
+    jurisprudence_strategy = {
+        "source": "⚖️ JURISPRUDÊNCIA E CONTROLE (TCU, STJ, STF)",
+        "query": f"site:tcu.gov.br OR site:stj.jus.br OR site:stf.jus.br {topic} (\"acórdão\" OR \"enunciado\" OR \"tese fixada\")"
     }
 
-    # 3. Camada Técnica e Doutrinária (Acórdãos e Teses)
-    technical_strategy = {
-        "source": "🎓 DOUTRINA E JURISPRUDÊNCIA TÉCNICA (Acórdãos e Teses)",
-        "query": f"site:stj.jus.br OR site:stf.jus.br OR site:tcu.gov.br {topic} (\"acórdão\" OR \"tese fixada\" OR \"voto relator\")"
+    # 3. Camada de Doutrina e Notas Técnicas (Instituições)
+    doctrine_strategy = {
+        "source": "🎓 DOUTRINA E NOTAS TÉCNICAS (Institucional)",
+        "query": f"site:advocaciageral.gov.br OR site:enap.gov.br OR site:cnj.jus.br {topic} (\"parecer referencial\" OR \"nota técnica\" OR \"orientação normativa\")"
     }
     
-    search_strategies = [news_strategy, official_strategy, technical_strategy]
+    search_strategies = [official_normative_strategy, jurisprudence_strategy, doctrine_strategy]
     
     combined_results.append(f"🔎 RELATÓRIO DE PESQUISA NA WEB SOBRE: '{topic}'\n")
 
