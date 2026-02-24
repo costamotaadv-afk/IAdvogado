@@ -1,0 +1,31 @@
+# Ambientes Virtuais
+.venv/
+venv/
+env/
+ENV/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Streamlit
+.streamlit/
+
+# Variáveis de Ambiente
+.env
+
+# Banco de Dados Vetorial (ChromaDB)
+chroma_db/
+*.sqlite3
+
+# IDEs e Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Arquivos de Sistema Operacional
+.DS_Store
+Thumbs.db

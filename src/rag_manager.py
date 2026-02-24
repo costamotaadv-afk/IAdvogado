@@ -1,0 +1,66 @@
+import os
+from typing import List
+from langchain_community.vectorstores import Chroma
+from langchain_openai import OpenAIEmbeddings
+from langchain_core.documents import Document
+
+class RAGManager:
+    def __init__(self, persist_directory: str = "./chroma_db"):
+        """
+        Inicializa o gerenciador do banco de dados vetorial (RAG).
+        
+        Args:
+            persist_directory (str): Diretório onde o banco de dados será salvo.
+        """
+        self.persist_directory = persist_directory
+        self.embeddings = OpenAIEmbeddings()
+        self.vectorstore = None
+        self._initialize_db()
+
+    def _initialize_db(self):
+        """Inicializa ou carrega o banco de dados vetorial."""
+        if os.path.exists(self.persist_directory):
+            self.vectorstore = Chroma(
+                persist_directory=self.persist_directory,
+                embedding_function=self.embeddings
+            )
+        else:
+            self.vectorstore = Chroma(
+                persist_directory=self.persist_directory,
+                embedding_function=self.embeddings
+            )
+
+    def add_documents(self, texts: List[str], metadatas: List[dict] = None):
+        """
+        Adiciona documentos ao banco de dados vetorial.
+        
+        Args:
+            texts (List[str]): Lista de textos para adicionar.
+            metadatas (List[dict], optional): Metadados associados aos textos.
+        """
+        if not texts:
+            return
+            
+        documents = [
+            Document(page_content=text, metadata=metadatas[i] if metadatas else {})
+            for i, text in enumerate(texts)
+        ]
+        
+        self.vectorstore.add_documents(documents)
+        self.vectorstore.persist()
+
+    def search_similar(self, query: str, k: int = 4) -> List[Document]:
+        """
+        Busca documentos similares no banco de dados.
+        
+        Args:
+            query (str): A consulta de busca.
+            k (int): Número de resultados a retornar.
+            
+        Returns:
+            List[Document]: Lista de documentos similares encontrados.
+        """
+        if not self.vectorstore:
+            return []
+            
+        return self.vectorstore.similarity_search(query, k=k)

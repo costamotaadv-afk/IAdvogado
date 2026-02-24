@@ -1,0 +1,20 @@
+{
+    "simplificado": {
+        "cabecalho": "Análise Técnica de Licitação",
+        "objeto": "O que está sendo comprado:",
+        "viabilidade": "A empresa pode participar?",
+        "conclusao": "Recomendação final:",
+        "status_ok": "Sim, tudo certo com a documentação.",
+        "status_erro": "Cuidado! Falta um documento importante.",
+        "lei_ref": "Baseado na Nova Lei de Licitações."
+    },
+    "tecnico": {
+        "cabecalho": "Parecer Jurídico Administrativo",
+        "objeto": "Do Objeto Licitatório:",
+        "viabilidade": "Do Exame de Admissibilidade e Habilitação:",
+        "conclusao": "Do Pronunciamento Conclusivo:",
+        "status_ok": "A proponente preenche os requisitos do Edital.",
+        "status_erro": "Inabilitação iminente por vício formal no certame.",
+        "lei_ref": "Fundamentado na Lei nº 14.133/2021."
+    }
+}
