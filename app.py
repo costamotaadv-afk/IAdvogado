@@ -144,7 +144,8 @@ with tab1:
                 st.write("✍️ Gerando Parecer Jurídico com IA...")
                 status.update(label="Parecer gerado com sucesso!", state="complete", expanded=False)
                 
-            try:
+            output_container = st.container()
+            with output_container:
                 st.markdown("### 📝 Parecer Jurídico")
                 
                 # Container para o streaming do texto
@@ -161,10 +162,9 @@ with tab1:
                 
                 # Itera sobre os chunks do stream e atualiza a interface
                 for chunk in stream:
-                    if hasattr(chunk, "content"):
-                        full_response += chunk.content
-                    else:
-                        full_response += str(chunk)
+                    content = chunk.content if hasattr(chunk, "content") else str(chunk)
+                    full_response += content
+                    # Atualiza o container com o texto acumulado
                     response_container.markdown(full_response + "▌")
                 
                 # Remove o cursor piscante no final
@@ -192,9 +192,6 @@ with tab1:
                     file_name="parecer_juridico.txt",
                     mime="text/plain"
                 )
-                
-            except Exception as e:
-                st.error(f"Erro ao gerar o parecer: {str(e)}")
 
 with tab2:
     st.header("� Gerenciar Biblioteca de Documentos")
