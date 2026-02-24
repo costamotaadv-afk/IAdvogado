@@ -1,0 +1,13 @@
+streamlit
+langchain
+langchain-openai
+langchain-community
+chromadb
+pypdf
+python-docx
+pandas
+openpyxl
+striprtf
+Pillow
+pytesseract
+pillow-heif

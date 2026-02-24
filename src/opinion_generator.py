@@ -6,7 +6,7 @@ def generate_legal_opinion(
     pdf_text: str, 
     rag_context: str, 
     web_context: str, 
-    model_name: str = "gpt-4-turbo-preview",
+    model_name: str = "gpt-4o-mini",
     temperature: float = 0.2
 ) -> str:
     """

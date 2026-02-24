@@ -14,7 +14,10 @@ def test_generate_legal_opinion(MockChatOpenAI):
     
     # Mockando o comportamento da chain (prompt | llm)
     mock_chain = MagicMock()
-    mock_chain.invoke.return_value = mock_response
+    # Como a função agora usa stream(), precisamos mockar o retorno do stream
+    mock_chunk = MagicMock()
+    mock_chunk.content = "Parecer Jurídico: Favorável."
+    mock_chain.stream.return_value = [mock_chunk]
     
     with patch('src.opinion_generator.ChatPromptTemplate.from_messages') as mock_prompt:
         # Fazendo com que a operação prompt | llm retorne nossa mock_chain
@@ -24,7 +27,10 @@ def test_generate_legal_opinion(MockChatOpenAI):
         rag_context = "Art. 75 da Lei 14.133/2021."
         web_context = "Acórdão 1234/2023 TCU."
         
-        result = generate_legal_opinion(pdf_text, rag_context, web_context)
+        stream_result = generate_legal_opinion(pdf_text, rag_context, web_context)
+        
+        # Junta os chunks do stream para verificar o resultado final
+        result = "".join([chunk.content for chunk in stream_result])
         
         assert "Parecer Jurídico: Favorável." in result
     # mock_llm.invoke.assert_called_once() # A chain é invocada, não o llm diretamente

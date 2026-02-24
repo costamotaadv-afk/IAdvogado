@@ -64,3 +64,51 @@ class RAGManager:
             return []
             
         return self.vectorstore.similarity_search(query, k=k)
+
+    def get_all_sources(self) -> List[str]:
+        """
+        Retorna uma lista com os nomes de todos os arquivos (sources) únicos no banco de dados.
+        """
+        if not self.vectorstore:
+            return []
+        try:
+            # Acessa a coleção subjacente do ChromaDB
+            collection = self.vectorstore._collection
+            result = collection.get(include=["metadatas"])
+            metadatas = result.get("metadatas", [])
+            
+            sources = set()
+            for meta in metadatas:
+                if meta and "source" in meta:
+                    sources.add(meta["source"])
+            return sorted(list(sources))
+        except Exception as e:
+            print(f"Erro ao obter fontes: {e}")
+            return []
+
+    def get_text_by_source(self, source: str) -> str:
+        """
+        Recupera todo o texto associado a uma fonte específica.
+        """
+        if not self.vectorstore:
+            return ""
+        try:
+            collection = self.vectorstore._collection
+            result = collection.get(where={"source": source}, include=["documents"])
+            documents = result.get("documents", [])
+            return "\n\n".join(documents)
+        except Exception as e:
+            print(f"Erro ao obter texto da fonte {source}: {e}")
+            return ""
+
+    def delete_by_source(self, source: str):
+        """
+        Remove todos os documentos associados a uma fonte específica.
+        """
+        if not self.vectorstore:
+            return
+        try:
+            collection = self.vectorstore._collection
+            collection.delete(where={"source": source})
+        except Exception as e:
+            print(f"Erro ao deletar fonte {source}: {e}")
