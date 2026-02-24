@@ -1,47 +1,63 @@
-from langchain_community.tools import DuckDuckGoSearchRun
+from duckduckgo_search import DDGS
 import time
 
 def search_jurisprudence(topic: str) -> str:
     """
     Realiza buscas segmentadas na web para simular uma pesquisa jurídica completa (Google-like).
     Busca separadamente por Legislação, TCU, Tribunais Superiores e Doutrina.
+    Retorna explicitamente URLs e Títulos para metadados.
     """
-    search_tool = DuckDuckGoSearchRun()
     combined_results = []
     
-    # 1. Camada de Legislação e Normas Oficiais (Base Legal)
-    official_normative_strategy = {
-        "source": "📜 LEGISLAÇÃO, MANUAIS E PORTAIS OFICIAIS (Planalto, Transparência)",
-        "query": f"site:planalto.gov.br OR site:gov.br OR site:portaltransparencia.gov.br {topic} (\"lei 14.133\" OR \"instrução normativa\" OR \"manual\")"
-    }
-
-    # 2. Camada de Jurisprudência e Controle Externo (Precedentes)
-    jurisprudence_strategy = {
-        "source": "⚖️ JURISPRUDÊNCIA E CONTROLE (TCU, STJ, STF)",
-        "query": f"site:tcu.gov.br OR site:stj.jus.br OR site:stf.jus.br {topic} (\"acórdão\" OR \"enunciado\" OR \"tese fixada\")"
-    }
-
-    # 3. Camada de Doutrina e Notas Técnicas (Instituições)
-    doctrine_strategy = {
-        "source": "🎓 DOUTRINA E NOTAS TÉCNICAS (Institucional)",
-        "query": f"site:advocaciageral.gov.br OR site:enap.gov.br OR site:cnj.jus.br {topic} (\"parecer referencial\" OR \"nota técnica\" OR \"orientação normativa\")"
-    }
+    # Estratégias de Busca Segmentada
+    strategies = [
+        {
+            "name": "📜 LEGISLAÇÃO E PORTAIS OFICIAIS",
+            "query": f"{topic} site:planalto.gov.br OR site:gov.br (\"lei 14.133\" OR \"instrução normativa\")"
+        },
+        {
+            "name": "⚖️ JURISPRUDÊNCIA E CONTROLE (TCU/STJ)",
+            "query": f"{topic} site:tcu.gov.br OR site:stj.jus.br OR site:stf.jus.br (\"acórdão\" OR \"enunciado\")"
+        },
+        {
+            "name": "🎓 DOUTRINA INSTITUCIONAL (AGU/ENAP)",
+            "query": f"{topic} site:advocaciageral.gov.br OR site:enap.gov.br (\"parecer\" OR \"nota técnica\")"
+        }
+    ]
     
-    search_strategies = [official_normative_strategy, jurisprudence_strategy, doctrine_strategy]
-    
-    combined_results.append(f"🔎 RELATÓRIO DE PESQUISA NA WEB SOBRE: '{topic}'\n")
+    combined_results.append(f"🔎 RELATÓRIO DE PESQUISA AVANÇADA PARA: '{topic}'\n")
 
-    for strategy in search_strategies:
-        try:
-            # Adiciona um pequeno delay para não bloquear a busca
-            time.sleep(1) 
-            result = search_tool.run(strategy["query"])
-            
-            # Formata o resultado para ficar legível no parecer
-            combined_results.append(f"\n--- {strategy['source']} ---")
-            combined_results.append(result if result else "Nenhum resultado relevante encontrado nesta fonte.")
-            
-        except Exception as e:
-            combined_results.append(f"\n--- {strategy['source']} ---\nErro na busca: {str(e)}")
+    with DDGS() as ddgs:
+        for strategy in strategies:
+            try:
+                # Delay anti-bloqueio
+                time.sleep(1)
+                
+                results = list(ddgs.text(strategy["query"], region='br-pt', safesearch='off', max_results=3))
+                
+                header = f"\n--- {strategy['name']} ---"
+                combined_results.append(header)
+                
+                if not results:
+                    combined_results.append("Nenhum resultado relevante encontrado.")
+                    continue
+                    
+                for i, r in enumerate(results, 1):
+                    # Formata cada resultado com Título, URL e Texto (snippet)
+                    title = r.get('title', 'Sem título')
+                    link = r.get('href', 'URL indisponível')
+                    body = r.get('body', '')
+                    
+                    entry = (
+                        f"\n[RESULTADO {i}]"
+                        f"\nTITULO: {title}"
+                        f"\nFONTE/URL: {link}"
+                        f"\nRESUMO: {body}"
+                        f"\n-------------------------------------------------"
+                    )
+                    combined_results.append(entry)
+                    
+            except Exception as e:
+                combined_results.append(f"\nErro na busca de {strategy['name']}: {str(e)}")
 
     return "\n".join(combined_results)

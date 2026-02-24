@@ -172,6 +172,7 @@ with tab1:
                     pdf_text=case_text,
                     rag_context=rag_context,
                     web_context=web_context,
+                    user_query=query_topic,
                     model_name=selected_model
                 )
                 

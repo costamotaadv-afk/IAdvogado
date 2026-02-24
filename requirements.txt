@@ -12,4 +12,3 @@ Pillow
 pytesseract
 pillow-heif
 duckduckgo-search
-ddgs
