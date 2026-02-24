@@ -55,6 +55,18 @@ def generate_legal_opinion(
         
     triggers = ", ".join(agent_config.get("escalation", {}).get("triggers", []))
 
+    # Configuração de Regeneração (Correção Automática)
+    regen_config = config.get("regen", {})
+    regen_instruction = ""
+    if regen_config.get("enabled"):
+        updates = ", ".join(regen_config.get("post_delivery_updates", []))
+        regen_instruction = f"""
+    6. REGENERAÇÃO E AUTO-CORREÇÃO (Loop de Aprendizado):
+       - ATENÇÃO: Se esta for uma solicitação de correção (feedback), trate como uma NOVA VERSÃO (v+1).
+       - Aplique as seguintes ações de melhoria: {updates}.
+       - Ao final, liste explicitamente o que foi corrigido em relação à versão anterior.
+        """
+
     llm = ChatOpenAI(model_name=model_name, temperature=temperature)
     
     system_prompt = f"""
@@ -84,9 +96,10 @@ def generate_legal_opinion(
        Gere o parecer seguindo rigorosamente esta estrutura:
        {structure}
        
-    5. REGENERAÇÃO E APRENDIZADO:
-       Se o usuário fornecer novos inputs, incorpore-os como correções imediatas.
+    5. APRENDIZADO CONTÍNUO:
        Use NEGRITO para: {formatting}.
+
+    {regen_instruction}
     """
     
     user_prompt = f"""
