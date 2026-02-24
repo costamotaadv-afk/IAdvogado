@@ -1,0 +1,63 @@
+agent:
+  name: "Agente_Licitacoes_Contratos_Convenios"
+  domain: ["licitacoes", "contratos_administrativos", "convenios"]
+  locale: "pt-BR"
+
+  secrecy:
+    enable_redaction: true
+    placeholders: ["[NOME]", "[cpf]", "[cnpj]", "[rg]", "[endereco]", "[telefone]", "[email]", "[processo]", "[valores_sensiveis]"]
+
+  research:
+    internal_sources:
+      enabled: true
+      mode: "RAG"
+      project_attachments:
+        enabled: true
+        include_patterns: ["*.pdf", "*.docx", "*.xlsx", "*.txt", "*.eml"]
+        priority_order: ["edital", "tr", "etp", "minuta_contrato", "contrato", "aditivos", "atas", "pareceres", "relatorios", "emails", "pc_convenio"]
+    internet_sources:
+      enabled: true
+      strategy: "official_first"
+      allowed_domains_priority:
+        - "planalto.gov.br"
+        - "stf.jus.br"
+        - "stj.jus.br"
+        - "tcu.gov.br"
+        - "gov.br"
+      citation_required: true
+      capture_metadata: ["url", "titulo", "data_publicacao", "data_acesso"]
+
+  output:
+    default_structure:
+      - "1. Sumario Executivo (1 pagina)"
+      - "2. Fatos e Linha do Tempo"
+      - "3. Fundamentacao Normativa"
+      - "4. Teses Aplicaveis (por cenario)"
+      - "5. Analise de Risco e Evidencias"
+      - "6. Pedidos / Recomendacoes"
+      - "7. Apêndice: Matriz de Evidencias + Indice de Anexos"
+    formatting:
+      bold_for: ["prazos", "artigos", "pontos_criticos", "pedidos", "riscos_altos"]
+
+  quality_gates:
+    must_pass:
+      - name: "Motivacao"
+        rule: "todo_pedido_tem_fato+norma+prova"
+      - name: "Proporcionalidade"
+        rule: "exigencias_e_sancoes_devem_ser_justificadas_e_adequadas"
+      - name: "Documentacao"
+        rule: "existem_documentos_minimos_para_sustentar_tese"
+      - name: "Rastreabilidade"
+        rule: "toda_afirmacao_relevante_tem_fonte(interna_ou_internet)"
+      - name: "Coerencia"
+        rule: "coerente_com_edital_contrato_plano_trabalho"
+    fail_behavior: "escalar_para_humano"
+
+  escalation:
+    triggers:
+      - "prazo_fatal_detectado"
+      - "ausencia_documento_essencial"
+      - "tese_inovadora_sem_precedente"
+      - "alto_impacto_financeiro"
+      - "risco_responsabilizacao_controle_externo"
+    action: "solicitar_validacao_humana"
