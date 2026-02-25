@@ -31,7 +31,7 @@ with st.sidebar:
     # 1. Tenta pegar de st.secrets (Streamlit Cloud)
     try:
         secret_key = st.secrets["OPENAI_API_KEY"]
-    except (FileNotFoundError, KeyError):
+    except (FileNotFoundError, KeyError, Exception):
         secret_key = ""
 
     # 2. Se não achou, tenta variável de ambiente local
