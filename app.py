@@ -1,9 +1,13 @@
 import streamlit as st
 import os
+from dotenv import load_dotenv
 from src.document_processor import extract_text_from_file, split_text_into_chunks
 from src.rag_manager import RAGManager
 from src.web_search import search_jurisprudence
 from src.opinion_generator import generate_legal_opinion
+
+# Carrega as variáveis de ambiente do arquivo .env (se existir)
+load_dotenv()
 
 st.set_page_config(
     page_title="Assistente de Pareceres Jurídicos - Lei 14.133/2021",
