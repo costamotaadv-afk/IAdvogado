@@ -2,6 +2,7 @@ import streamlit as st
 import os
 from dotenv import load_dotenv
 from src.document_processor import extract_text_from_file, split_text_into_chunks
+
 from src.rag_manager import RAGManager
 from src.web_search import search_jurisprudence
 from src.opinion_generator import generate_legal_opinion
@@ -99,6 +100,14 @@ with tab1:
     
     # Variável selected_lib_docs precisa existir mesmo vazia para não quebrar a lógica abaixo
     selected_lib_docs = []
+    if rag_manager:
+        sources = rag_manager.get_all_sources()
+        if sources:
+            selected_lib_docs = st.multiselect(
+                "Selecione documentos da Biblioteca para análise:",
+                options=sources,
+                default=[]
+            )
 
     query_topic = st.text_input("Qual o tema principal da análise? (Ex: Dispensa de licitação por valor, inexigibilidade, reequilíbrio econômico-financeiro)")
     

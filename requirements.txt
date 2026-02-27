@@ -2,7 +2,7 @@
 langchain
 langchain-openai
 langchain-community
-chromadb
+langchain-chroma
 pypdf
 python-docx
 pandas
@@ -11,5 +11,5 @@ striprtf
 Pillow
 pytesseract
 pillow-heif
-duckduckgo-search
+ddgs
 PyYAML

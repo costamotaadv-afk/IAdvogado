@@ -19,6 +19,9 @@ def extract_text_from_file(file_obj, file_name: str) -> str:
     text = ""
     
     try:
+        if hasattr(file_obj, 'seek'):
+            file_obj.seek(0)
+            
         if ext == 'pdf':
             reader = PdfReader(file_obj)
             for page in reader.pages:

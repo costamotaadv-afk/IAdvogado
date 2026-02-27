@@ -21,7 +21,7 @@ def test_add_documents(MockChroma, MockEmbeddings):
     
     # Verifica se o método add_documents do Chroma foi chamado
     manager.vectorstore.add_documents.assert_called_once()
-    manager.vectorstore.persist.assert_called_once()
+    # O persist não é chamado explicitamente pelo método add_documents
 
 @patch('src.rag_manager.OpenAIEmbeddings')
 @patch('src.rag_manager.Chroma')

@@ -1,4 +1,4 @@
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 import time
 
 def search_jurisprudence(topic: str) -> str:

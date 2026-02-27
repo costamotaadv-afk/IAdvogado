@@ -1,6 +1,6 @@
 import os
 from typing import List
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 from langchain_core.documents import Document
 
@@ -19,16 +19,10 @@ class RAGManager:
 
     def _initialize_db(self):
         """Inicializa ou carrega o banco de dados vetorial."""
-        if os.path.exists(self.persist_directory):
-            self.vectorstore = Chroma(
-                persist_directory=self.persist_directory,
-                embedding_function=self.embeddings
-            )
-        else:
-            self.vectorstore = Chroma(
-                persist_directory=self.persist_directory,
-                embedding_function=self.embeddings
-            )
+        self.vectorstore = Chroma(
+            persist_directory=self.persist_directory,
+            embedding_function=self.embeddings
+        )
 
     def add_documents(self, texts: List[str], metadatas: List[dict] = None):
         """
@@ -47,7 +41,6 @@ class RAGManager:
         ]
         
         self.vectorstore.add_documents(documents)
-        self.vectorstore.persist()
 
     def search_similar(self, query: str, k: int = 4) -> List[Document]:
         """
