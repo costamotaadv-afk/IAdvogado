@@ -5,7 +5,7 @@ from src.document_processor import extract_text_from_file, split_text_into_chunk
 
 from src.rag_manager import RAGManager
 from src.web_search import search_jurisprudence
-from src.opinion_generator import generate_legal_opinion
+from src.opinion_generator import generate_legal_opinion, get_contextual_analysis_report, get_comprehensive_linguistic_analysis
 
 # Carrega as variáveis de ambiente do arquivo .env (se existir)
 load_dotenv()
@@ -168,6 +168,30 @@ with tab1:
                 if use_web_search:
                     st.write("🌐 Pesquisando Doutrina, Legislação e Jurisprudência na Web (Google)...")
                     web_context = search_jurisprudence(query_topic)
+                
+                # Mostrar análise contextual da solicitação do usuário
+                st.write("🧠 Analisando contexto da sua solicitação...")
+                contextual_report = get_contextual_analysis_report(query_topic)
+                with st.expander("📊 Ver Análise Contextual (Como o agente interpretou sua solicitação)", expanded=False):
+                    st.markdown(contextual_report)
+                
+                # Mostrar análise linguística completa (aprendizado do agente)
+                st.write("📚 Analisando padrões linguísticos e aprendendo com o conteúdo...")
+                linguistic_report = get_comprehensive_linguistic_analysis(query_topic + ' ' + case_text[:5000])
+                with st.expander("🎓 Ver Análise Linguística (Aprendizado do Agente)", expanded=False):
+                    st.markdown(linguistic_report)
+                    st.info("""
+                    💡 **Este agente aprende de verdade!**
+                    
+                    A cada interação, o agente analisa e memoriza:
+                    - Relações entre palavras (vocabulário contextual)
+                    - Estrutura de frases (padrões sintáticos)
+                    - Padrões de raciocínio (lógica argumentativa)
+                    - Formas de argumentar (estratégias persuasivas)
+                    - Estilos de escrita (características linguísticas)
+                    
+                    Quanto mais você usa, mais ele se adapta ao seu estilo e necessidades!
+                    """)
                 
                 st.write("✍️ Gerando Parecer Jurídico com IA...")
                 status.update(label="Parecer gerado com sucesso!", state="complete", expanded=False)
