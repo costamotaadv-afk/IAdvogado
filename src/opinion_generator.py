@@ -241,21 +241,25 @@ def generate_legal_opinion(
         ("user", user_prompt)
     ])
     
+    # Limita o tamanho do texto para evitar estourar o contexto do modelo
+    # Para modelos gpt-4o/gpt-4o-mini, o limite é ~128k tokens, mas usamos um valor conservador
+    max_chars = 50000  # Aproximadamente 12.5k tokens (assumindo 4 chars/token)
+    
     # Se o LLM suportar streaming, retornamos o iterador de chunks
     if hasattr(llm, "stream"):
         chain = prompt | llm
         return chain.stream({
-            "pdf_text": pdf_text[:15000], # Limitando o tamanho para não estourar o contexto
-            "rag_context": rag_context,
-            "web_context": web_context,
+            "pdf_text": pdf_text[:max_chars],
+            "rag_context": rag_context[:max_chars],
+            "web_context": web_context[:max_chars],
             "user_query": user_query
         })
     else:
         chain = prompt | llm
         response = chain.invoke({
-            "pdf_text": pdf_text[:15000],
-            "rag_context": rag_context,
-            "web_context": web_context,
+            "pdf_text": pdf_text[:max_chars],
+            "rag_context": rag_context[:max_chars],
+            "web_context": web_context[:max_chars],
             "user_query": user_query
         })
         return response.content

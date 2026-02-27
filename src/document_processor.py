@@ -33,31 +33,43 @@ def extract_text_from_file(file_obj, file_name: str) -> str:
             text = file_obj.read().decode('utf-8', errors='ignore')
             
         elif ext == 'docx':
-            import docx
-            doc = docx.Document(file_obj)
-            text = "\n".join([para.text for para in doc.paragraphs])
+            try:
+                import docx
+                doc = docx.Document(file_obj)
+                text = "\n".join([para.text for para in doc.paragraphs])
+            except ImportError:
+                raise ImportError("Biblioteca 'python-docx' não instalada. Execute: pip install python-docx")
             
         elif ext in ['xlsx', 'xls']:
-            import pandas as pd
-            df = pd.read_excel(file_obj)
-            text = df.to_string()
+            try:
+                import pandas as pd
+                df = pd.read_excel(file_obj)
+                text = df.to_string()
+            except ImportError:
+                raise ImportError("Bibliotecas 'pandas' e 'openpyxl' não instaladas. Execute: pip install pandas openpyxl")
             
         elif ext == 'rtf':
-            from striprtf.striprtf import rtf_to_text
-            rtf_content = file_obj.read().decode('utf-8', errors='ignore')
-            text = rtf_to_text(rtf_content)
+            try:
+                from striprtf.striprtf import rtf_to_text
+                rtf_content = file_obj.read().decode('utf-8', errors='ignore')
+                text = rtf_to_text(rtf_content)
+            except ImportError:
+                raise ImportError("Biblioteca 'striprtf' não instalada. Execute: pip install striprtf")
             
         elif ext in ['png', 'jpeg', 'jpg', 'webp', 'heic']:
-            from PIL import Image
-            import pytesseract
-            
-            # Para HEIC, precisamos de uma biblioteca extra
-            if ext == 'heic':
-                from pillow_heif import register_heif_opener
-                register_heif_opener()
+            try:
+                from PIL import Image
+                import pytesseract
                 
-            img = Image.open(file_obj)
-            text = pytesseract.image_to_string(img, lang='por') # Assume português
+                # Para HEIC, precisamos de uma biblioteca extra
+                if ext == 'heic':
+                    from pillow_heif import register_heif_opener
+                    register_heif_opener()
+                    
+                img = Image.open(file_obj)
+                text = pytesseract.image_to_string(img, lang='por')
+            except ImportError as e:
+                raise ImportError(f"Bibliotecas de OCR não instaladas. Execute: pip install Pillow pytesseract pillow-heif. Erro: {str(e)}")
             
         else:
             raise ValueError(f"Formato de arquivo não suportado: {ext}")
