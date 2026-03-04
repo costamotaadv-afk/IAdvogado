@@ -5,6 +5,7 @@ langchain-community
 langchain-chroma
 pypdf
 python-docx
+reportlab
 pandas
 openpyxl
 striprtf

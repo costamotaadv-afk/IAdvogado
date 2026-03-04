@@ -24,10 +24,12 @@ def extract_text_from_file(file_obj, file_name: str) -> str:
             
         if ext == 'pdf':
             reader = PdfReader(file_obj)
+            pages_text = []
             for page in reader.pages:
                 page_text = page.extract_text()
                 if page_text:
-                    text += page_text + "\n"
+                    pages_text.append(page_text)
+            text = "\n".join(pages_text)
                     
         elif ext in ['txt', 'csv']:
             text = file_obj.read().decode('utf-8', errors='ignore')

@@ -1,5 +1,7 @@
 from ddgs import DDGS
 import time
+from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 def search_jurisprudence(topic: str) -> str:
     """
@@ -25,7 +27,11 @@ def search_jurisprudence(topic: str) -> str:
         }
     ]
     
-    combined_results.append(f"🔎 RELATÓRIO DE PESQUISA AVANÇADA PARA: '{topic}'\n")
+    search_ts = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+    combined_results.append(
+        f"🔎 RELATÓRIO DE PESQUISA AVANÇADA PARA: '{topic}'\n"
+        f"DATA/HORA DA COLETA: {search_ts}\n"
+    )
 
     with DDGS() as ddgs:
         for strategy in strategies:
@@ -46,12 +52,15 @@ def search_jurisprudence(topic: str) -> str:
                     # Formata cada resultado com Título, URL e Texto (snippet)
                     title = r.get('title', 'Sem título')
                     link = r.get('href', 'URL indisponível')
+                    domain = urlparse(link).netloc if link else "domínio indisponível"
                     body = r.get('body', '')
                     
                     entry = (
                         f"\n[RESULTADO {i}]"
                         f"\nTITULO: {title}"
                         f"\nFONTE/URL: {link}"
+                        f"\nDOMÍNIO: {domain}"
+                        f"\nDATA/HORA DA COLETA: {search_ts}"
                         f"\nRESUMO: {body}"
                         f"\n-------------------------------------------------"
                     )

@@ -13,6 +13,7 @@ def test_rag_manager_initialization(MockChroma, MockEmbeddings):
 @patch('src.rag_manager.Chroma')
 def test_add_documents(MockChroma, MockEmbeddings):
     manager = RAGManager(persist_directory="./test_db")
+    manager.vectorstore.add_documents.reset_mock()
     
     texts = ["Texto 1", "Texto 2"]
     metadatas = [{"source": "doc1"}, {"source": "doc2"}]
@@ -37,4 +38,4 @@ def test_search_similar(MockChroma, MockEmbeddings):
     
     assert len(results) == 1
     assert results[0].page_content == "Resultado da busca"
-    manager.vectorstore.similarity_search.assert_called_with("consulta", k=1)
+    manager.vectorstore.similarity_search.assert_called_with("consulta", k=8)

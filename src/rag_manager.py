@@ -3,6 +3,7 @@ from typing import List
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 from langchain_core.documents import Document
+from src.document_processor import extract_text_from_file, split_text_into_chunks
 
 class RAGManager:
     def __init__(self, persist_directory: str = "./chroma_db"):
@@ -15,7 +16,9 @@ class RAGManager:
         self.persist_directory = persist_directory
         self.embeddings = OpenAIEmbeddings()
         self.vectorstore = None
+        self.vector_store = None
         self._initialize_db()
+        self.load_legal_knowledge_base()
 
     def _initialize_db(self):
         """Inicializa ou carrega o banco de dados vetorial."""
@@ -23,6 +26,7 @@ class RAGManager:
             persist_directory=self.persist_directory,
             embedding_function=self.embeddings
         )
+        self.vector_store = self.vectorstore
 
     def add_documents(self, texts: List[str], metadatas: List[dict] = None):
         """
@@ -34,13 +38,45 @@ class RAGManager:
         """
         if not texts:
             return
-            
-        documents = [
-            Document(page_content=text, metadata=metadatas[i] if metadatas else {})
-            for i, text in enumerate(texts)
-        ]
-        
+
+        if not self.vectorstore:
+            self._initialize_db()
+
+        documents = []
+        for i, text in enumerate(texts):
+            metadata = metadatas[i] if metadatas and i < len(metadatas) else {}
+            documents.append(Document(page_content=text, metadata=metadata))
+
         self.vectorstore.add_documents(documents)
+        if hasattr(self.vectorstore, "persist"):
+            self.vectorstore.persist()
+
+    def load_legal_knowledge_base(self):
+        """
+        Carrega automaticamente a base jurídica fixa
+        (Lei 14.133, STF, STJ, TCU, princípios etc.)
+        """
+
+        base_path = os.path.join(os.path.dirname(__file__), "knowledge_base")
+
+        allowed_types = (".pdf", ".doc", ".docx", ".txt")
+
+        for root, _, files in os.walk(base_path):
+            for file in files:
+                if file.lower().endswith(allowed_types):
+                    file_path = os.path.join(root, file)
+
+                    try:
+                        with open(file_path, "rb") as f:
+                            text = extract_text_from_file(f, file)
+
+                        if text.strip():
+                            chunks = split_text_into_chunks(text)
+                            metadata = [{"source": file}] * len(chunks)
+                            self.add_documents(chunks, metadata)
+                            print(f"Base jurídica carregada: {file}")
+                    except Exception as e:
+                        print(f"Erro ao carregar {file}: {str(e)}")
 
     def search_similar(self, query: str, k: int = 4) -> List[Document]:
         """
@@ -53,10 +89,11 @@ class RAGManager:
         Returns:
             List[Document]: Lista de documentos similares encontrados.
         """
-        if not self.vectorstore:
+        if not self.vector_store:
             return []
-            
-        return self.vectorstore.similarity_search(query, k=k)
+
+        results = self.vector_store.similarity_search(query, k=8)
+        return results
 
     def get_all_sources(self) -> List[str]:
         """

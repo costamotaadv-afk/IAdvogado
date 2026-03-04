@@ -30,8 +30,8 @@ def test_generate_legal_opinion(MockChatOpenAI):
 
         stream_result = generate_legal_opinion(pdf_text, rag_context, web_context, user_query)
         
-        # Junta os chunks do stream para verificar o resultado final
-        result = "".join([chunk.content for chunk in stream_result])
+        # A função agora retorna strings diretamente (não mais chunks com .content)
+        result = "".join(stream_result)
         
         assert "Parecer Jurídico: Favorável." in result
     # mock_llm.invoke.assert_called_once() # A chain é invocada, não o llm diretamente
@@ -49,7 +49,8 @@ def test_generate_legal_opinion_system_prompt_rules(MockChatOpenAI):
     with patch('src.opinion_generator.ChatPromptTemplate.from_messages') as mock_prompt:
         mock_prompt.return_value.__or__.return_value = mock_chain
         
-        generate_legal_opinion("", "", "", "")
+        # Consome o gerador para que a função seja executada completamente
+        list(generate_legal_opinion("", "", "", ""))
         
         # Verifica se from_messages foi chamado
         mock_prompt.assert_called_once()
@@ -67,3 +68,9 @@ def test_generate_legal_opinion_system_prompt_rules(MockChatOpenAI):
         assert "Cenário B — Falha do sistema de anexos/biblioteca (Lacuna de acesso/indexação)" in system_message
         assert "7.1 Regularização do acervo (Lista mínima de documentos por tipo de caso)" in system_message
         assert "2.2 Método aplicado e Log de Busca Interna" in system_message
+        
+        # Verifica se os 33 pontos técnicos estão no prompt
+        assert "33 PONTOS TÉCNICOS CRÍTICOS" in system_message
+        assert "NATUREZA DO OBJETO" in system_message
+        assert "CRITÉRIO DE JULGAMENTO E PREÇOS" in system_message
+        assert "EXIGÊNCIAS POTENCIALMENTE RESTRITIVAS" in system_message

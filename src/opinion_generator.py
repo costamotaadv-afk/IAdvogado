@@ -1,11 +1,15 @@
 import os
+from datetime import datetime, timezone
 import yaml
 import re
+import time
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Generator
 from collections import defaultdict, Counter
 import json
+from src.legal_classifier import classify_legal_case
+from src.template_manager import load_template
 
 # ========== SISTEMA DE APRENDIZADO LINGUÍSTICO ==========
 
@@ -405,11 +409,31 @@ def get_comprehensive_linguistic_analysis(text: str) -> str:
     Returns:
         str: Relatório formatado com todas as análises
     """
-    word_rels = analyze_word_relations(text)
-    structures = analyze_sentence_structure(text)
-    reasoning = analyze_reasoning_patterns(text)
-    arguments = analyze_argument_styles(text)
-    style = analyze_writing_style(text)
+    try:
+        word_rels = analyze_word_relations(text)
+    except Exception as e:
+        word_rels = {'learned_vocabulary': 0, 'learning_note': f'Erro na análise: {str(e)}'}
+    
+    try:
+        structures = analyze_sentence_structure(text)
+    except Exception as e:
+        structures = {'total_patterns_learned': 0, 'most_common_structure': 'N/A', 'learning_note': f'Erro: {str(e)}'}
+    
+    try:
+        reasoning = analyze_reasoning_patterns(text)
+    except Exception as e:
+        reasoning = {'total_reasoning_examples': 0, 'patterns_detected': [], 'learning_note': f'Erro: {str(e)}'}
+    
+    try:
+        arguments = analyze_argument_styles(text)
+    except Exception as e:
+        arguments = {'total_arguments_analyzed': 0, 'preferred_style': 'N/A', 'arguments_in_text': [], 'learning_note': f'Erro: {str(e)}'}
+    
+    try:
+        style = analyze_writing_style(text)
+    except Exception as e:
+        style = {'formality': 'N/A', 'complexity': 'N/A', 'tone': 'N/A', 'technical_density': 'N/A', 
+                'objectivity': 'N/A', 'avg_sentence_length': 0, 'total_styles_learned': 0, 'learning_note': f'Erro: {str(e)}'}
     
     report = f"""
 📚 **ANÁLISE LINGUÍSTICA COMPLETA & APRENDIZADO**
@@ -782,8 +806,12 @@ def generate_legal_opinion(
     model_name: str = "gpt-4o-mini",
     temperature: float = 0.2,
     rag_results: Optional[List] = None,
-    session_id: Optional[str] = "default"
-) -> str:
+    session_id: Optional[str] = "default",
+    template_text: Optional[str] = None,
+    style_examples: Optional[str] = None,
+    output_mode: Optional[str] = None,
+    chapter: Optional[str] = None
+) -> Generator[str, None, None]:
     """
     Gera um parecer jurídico com base no texto do PDF, contexto do RAG, busca na web e consulta do usuário.
     
@@ -802,6 +830,9 @@ def generate_legal_opinion(
         temperature: Criatividade da resposta (0-1)
         rag_results: Lista de documentos RAG (opcional, para citação)
         session_id: ID da sessão para manter contexto conversacional
+        template_text: Template base para orientar a estrutura
+        output_mode: Modo de saída (técnico, simplificado, minuta)
+        chapter: Capítulo específico a gerar (relatorio, fundamentacao, conclusao)
     """
     
     # 1. TOKENIZAÇÃO E ANÁLISE DE ATENÇÃO (Transformer)
@@ -836,6 +867,11 @@ def generate_legal_opinion(
     
     # 6. Analisar intenção do usuário
     user_analysis = analyze_user_intent(user_query)
+
+    # 6.1 Classificar o tipo de caso e carregar o template padrão
+    if not template_text:
+        case_type = classify_legal_case(user_query)
+        template_text = load_template(case_type)
     
     # 7. Carregar Configurações
     config = load_config()
@@ -1000,7 +1036,25 @@ def generate_legal_opinion(
     - Use esses termos como guia para estruturar a resposta
         """
 
-    llm = ChatOpenAI(model_name=model_name, temperature=temperature)
+    # Configuração do modelo com max_tokens dentro dos limites reais de conclusão
+    # Observação: modelos atuais suportam ~4k tokens de saída; usar valores maiores gera erro 400.
+    max_tokens_config = {
+        "gpt-4-turbo": 4000,
+        "gpt-4-turbo-preview": 4000,
+        "gpt-4o": 4000,
+        "gpt-4o-mini": 4000,
+        "gpt-4": 4000,
+        "gpt-3.5-turbo": 4000
+    }
+    
+    max_tokens = max_tokens_config.get(model_name, 4096)
+    
+    llm = ChatOpenAI(
+        model_name=model_name,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        streaming=True  # Garante streaming para respostas longas
+    )
     
     # Preparar informações sobre fontes para incluir no prompt
     sources_instruction = ""
@@ -1013,6 +1067,8 @@ def generate_legal_opinion(
     IMPORTANTE: Cite estas fontes sempre que usar informações delas.
     Formato de citação: "Conforme [fonte], ..." ou "De acordo com [documento], ..."
         """
+
+    now_str = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S %z")
 
     system_prompt = f"""
     IDENTITY:
@@ -1096,7 +1152,7 @@ def generate_legal_opinion(
     - Busca web fornecida: disponível no contexto web_context
     - Use para verificar legislação atualizada, jurisprudência recente
     - Cruze dados: se mencionar prazos, verifique na web; se citar leis, busque texto atualizado
-    - Integre informações temporais (data atual: {os.times().elapsed})
+    - Integre informações temporais (data atual: {now_str})
     
     💬 FLUIDEZ E LÓGICA CONVERSACIONAL:
     Você deve ser um assistente versátil, não apenas um gerador de pareceres:
@@ -1254,30 +1310,116 @@ def generate_legal_opinion(
        Use NEGRITO para: {formatting}.
 
     {regen_instruction}
+    
+    ⚠️ **INSTRUÇÃO CRÍTICA DE GERAÇÃO COMPLETA** ⚠️
+    
+    Você DEVE gerar o parecer COMPLETO em uma única execução.
+    NÃO interrompa a geração no meio.
+    NÃO use marcadores como "▌" ou reticências "..." no final.
+    Se necessário, seja mais conciso em cada seção, mas COMPLETE todas.
+    
+    **ESTRUTURA OBRIGATÓRIA - TODAS as seções devem ser completadas:**
+    
+    ✅ 1. Sumário Executivo (obrigatório - mínimo 2 parágrafos)
+    ✅ 2. Fatos e Linha do Tempo (obrigatório - com datas)
+    ✅ 3. Fundamentação Normativa (obrigatório - com artigos)
+    ✅ 4. Teses Aplicáveis (obrigatório - cenários A, B, C se aplicável)
+    ✅ 5. Análise de Riscos (obrigatório - com evidências)
+    ✅ 6. Pedidos/Recomendações (obrigatório - lista numerada)
+    ✅ 7. Matriz de Evidências (obrigatório - tabela)
+    ✅ 8. Índice de Anexos (obrigatório - lista)
+    ✅ 9. Conclusão (obrigatório - 2-3 parágrafos finais)
+    ✅ Citações (obrigatório - todas as fontes [1], [2], [3]...)
+    
+    📋 **33 PONTOS TÉCNICOS CRÍTICOS - ANÁLISE OBRIGATÓRIA DE TR/EDITAL:**
+    
+    Ao analisar Termo de Referência, Edital ou processo licitatório, você DEVE verificar e comentar:
+    
+    **A) NATUREZA DO OBJETO (5 pontos):**
+    1. Classificação está correta? (serviço comum/comum continuado/engenharia)
+    2. Há ETP (Estudo Técnico Preliminar) formalmente aprovado?
+    3. Definição atende art. 6º, XIII e XXIII da Lei 14.133/2021?
+    4. Há matriz de riscos mencionada ou anexada?
+    5. Objeto é divisível? Justifica divisão por item?
+    
+    **B) CRITÉRIO DE JULGAMENTO E PREÇOS (6 pontos):**
+    6. Critério adotado (menor preço/melhor técnica/maior desconto)?
+    7. Divisão por item/lote tem justificativa técnica?
+    8. Há memória de cálculo do preço estimado?
+    9. Pesquisa de preços conforme art. 23 da Lei 14.133?
+    10. Valor total estimado está lastreado em estudo formal?
+    11. Planilhas de custos estão detalhadas e realistas?
+    
+    **C) EXIGÊNCIAS POTENCIALMENTE RESTRITIVAS (8 pontos):**
+    12. Há vedação a consórcio? Foi justificada (art. 15)?
+    13. Exige veículo já disponível na licitação? (TCU: pode restringir)
+    14. Limite de itinerários por empresa? Afronta competitividade?
+    15. Capacidade técnica mínima está proporcional (art. 67)?
+    16. Percentual de capacidade técnica (ex: 30%) é razoável?
+    17. Exigências de qualificação técnica são essenciais?
+    18. Há comprovação prévia de posse de bens? Viola jurisprudência?
+    19. Critérios de habilitação são objetivos e mensuráveis?
+    
+    **D) CLÁUSULAS DE RISCO JURÍDICO (7 pontos):**
+    20. Índice de reajuste está definido (IPCA/IGP-M)?
+    21. Reajuste é coerente com contrato continuado?
+    22. Há cláusula clara de reequilíbrio econômico-financeiro?
+    23. Revisão por aumento de diesel/combustível está prevista?
+    24. Critério de recomposição de preços está tecnicamente definido?
+    25. Limite de alteração contratual (ex: 25%) está alinhado ao art. 125?
+    26. Prazos de pagamento são compatíveis com fluxo de caixa?
+    
+    **E) PROPORCIONALIDADE E DETALHAMENTO (4 pontos):**
+    27. Há excesso de detalhamento operacional? (risco: engessar fiscalização)
+    28. Normas comportamentais são proporcionais?
+    29. Obrigações contratuais podem gerar nulidade por extrapolação?
+    30. Cláusulas penais são razoáveis e graduadas?
+    
+    **F) COMPETÊNCIA E RECEPÇÃO NORMATIVA (3 pontos):**
+    31. Se município usa norma estadual: há ato formal de recepção?
+    32. Adoção de norma externa é válida sob pacto federativo?
+    33. Há fundamento legal municipal para não ter lei própria?
+    
+    ⚠️ **PARA CADA PONTO NÃO VERIFICADO/AUSENTE, MENCIONE EXPLICITAMENTE NO PARECER.**
+    
+    Exemplo: "⚠️ Ponto 2 (ETP): NÃO LOCALIZADO - risco de anulação por falta de motivação adequada."
+    
+    Esta checklist DEVE aparecer ao final da seção de Análise de Riscos ou em seção específica.
     """
     
+    template_block = template_text if template_text else "(nenhum template fornecido)"
+    style_block = style_examples if style_examples else "(nenhum exemplo fornecido)"
+    output_mode_label = output_mode if output_mode else "padrao"
+    chapter_label = chapter if chapter else "completo"
+
+    rag_limit_chars = 12000
+    rag_context_limited = rag_context[:rag_limit_chars]
+
     user_prompt = f"""
-    FONTE PRIMÁRIA - DOCUMENTOS INTERNOS DO PROCESSO (Anexos):
-    (Respeite a prioridade documental: Edital > Contrato > Pareceres > E-mails)
-    -------------------------------------------------
+    Use a estrutura jurídica abaixo como base obrigatória para o parecer:
+
+    {template_block}
+
+    Documentos analisados:
     {{pdf_text}}
-    -------------------------------------------------
-    
-    FONTES DE APOIO - BIBLIOTECA E INTERNET (Externas):
-    -------------------------------------------------
-    CONTEXTO DA BIBLIOTECA:
+
+    Contexto da biblioteca:
     {{rag_context}}
-    
-    PESQUISA WEB ATUALIZADA (Validar URL e Data):
+
+    Jurisprudência e doutrina da web:
     {{web_context}}
-    -------------------------------------------------
-    
-    COMANDO DO USUÁRIO / TEMA DA ANÁLISE:
+
+    MODELO DE ESTILO E ESTRUTURA (use como guia):
+    {style_block}
+
+    Tema da análise:
     {{user_query}}
-    Utilize este comando para direcionar o foco do parecer (ex: focar apenas no reequilíbrio, analisar apenas a tempestividade).
-    
-    COMANDO INTEGRATIVO:
-    Utilize as FONTES DE APOIO apenas para validar, corrigir ou fundamentar os dados encontrados na FONTE PRIMÁRIA.
+
+    Elabore parecer jurídico completo.
+
+    Regras de citacao obrigatoria:
+    - Sempre que usar a web, cite URL, dominio e data/hora da coleta.
+    - Sempre que usar a biblioteca local, cite a fonte (arquivo).
     """
     
     prompt = ChatPromptTemplate.from_messages([
@@ -1286,27 +1428,90 @@ def generate_legal_opinion(
     ])
     
     # Limita o tamanho do texto para evitar estourar o contexto do modelo
-    # Para modelos gpt-4o/gpt-4o-mini, o limite é ~128k tokens, mas usamos um valor conservador
-    max_chars = 50000  # Aproximadamente 12.5k tokens (assumindo 4 chars/token)
+    # Modelos gpt-4-turbo/gpt-4o suportam 128k tokens de contexto (~512k chars)
+    # Usando valor generoso para permitir análises completas
+    max_chars_config = {
+        "gpt-4-turbo": 200000,      # ~50k tokens - pareceres muito extensos
+        "gpt-4-turbo-preview": 200000,
+        "gpt-4o": 200000,           # ~50k tokens - pareceres extensos
+        "gpt-4o-mini": 150000,      # ~37.5k tokens - pareceres médios
+        "gpt-4": 100000,            # ~25k tokens
+        "gpt-3.5-turbo": 50000      # ~12.5k tokens - conservador
+    }
     
-    # Se o LLM suportar streaming, retornamos o iterador de chunks
-    if hasattr(llm, "stream"):
-        chain = prompt | llm
-        return chain.stream({
-            "pdf_text": pdf_text[:max_chars],
-            "rag_context": rag_context[:max_chars],
-            "web_context": web_context[:max_chars],
-            "user_query": user_query
-        })
-    else:
-        chain = prompt | llm
-        response = chain.invoke({
-            "pdf_text": pdf_text[:max_chars],
-            "rag_context": rag_context[:max_chars],
-            "web_context": web_context[:max_chars],
-            "user_query": user_query
-        })
-        return response.content
+    max_chars = max_chars_config.get(model_name, 50000)
+    
+    # ===== STREAMING ROBUSTO COM RETRY LOGIC E TIMEOUT =====
+    # Sistema de retry para garantir geração completa mesmo com falhas transitórias
+    max_retries = 3
+    retry_count = 0
+    
+    while retry_count < max_retries:
+        try:
+            # Se o LLM suportar streaming, retornamos o iterador de chunks
+            if hasattr(llm, "stream"):
+                chain = prompt | llm
+                
+                # Configurar timeout no cliente OpenAI (5 minutos para pareceres longos)
+                # Nota: LangChain usa timeout como parâmetro de configuração
+                stream_response = chain.stream(
+                    {
+                        "pdf_text": pdf_text[:max_chars],
+                        "rag_context": rag_context_limited,  # limite de contexto RAG
+                        "web_context": web_context[:50000],   # ~12k tokens para Web
+                        "user_query": user_query
+                    },
+                    config={"timeout": 300.0}  # 5 minutos
+                )
+                
+                # Buffer para acumular chunks e otimizar yields
+                buffer = ""
+                for chunk in stream_response:
+                    content = chunk.content if hasattr(chunk, "content") else str(chunk)
+                    buffer += content
+                    
+                    # Yield em lotes de 50 caracteres para reduzir overhead
+                    if len(buffer) >= 50:
+                        yield buffer
+                        buffer = ""
+                
+                # Yield do buffer restante
+                if buffer:
+                    yield buffer
+                
+                # Sucesso - sai do loop de retry
+                break
+                
+            else:
+                # Fallback para invoke (sem streaming)
+                chain = prompt | llm
+                response = chain.invoke({
+                    "pdf_text": pdf_text[:max_chars],
+                    "rag_context": rag_context[:100000],
+                    "web_context": web_context[:50000],
+                    "user_query": user_query
+                })
+                yield response.content
+                break
+                
+        except Exception as e:
+            retry_count += 1
+            
+            if retry_count >= max_retries:
+                # Falhou após 3 tentativas - informa o erro
+                error_msg = f"\n\n⚠️ **ERRO APÓS {max_retries} TENTATIVAS**\n\n"
+                error_msg += f"Erro técnico: {str(e)}\n\n"
+                error_msg += "**Sugestões:**\n"
+                error_msg += "1. Tente novamente em alguns segundos\n"
+                error_msg += "2. Use modelo menor (gpt-4o-mini)\n"
+                error_msg += "3. Reduza o tamanho do documento\n"
+                error_msg += "4. Verifique sua conexão com a internet\n"
+                yield error_msg
+                break
+            else:
+                # Aguarda 2 segundos antes de tentar novamente
+                time.sleep(2)
+                continue
 
 def get_contextual_analysis_report(user_query: str) -> str:
     """
